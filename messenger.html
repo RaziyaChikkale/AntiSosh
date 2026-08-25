@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        .message-content {
+            background-color: rgb(91, 84, 153);
+        }
+    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="messenger.css">
+    <link rel="icon" href="antisoshicon.jpg" type="image/jpg">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js" integrity="sha384-DyZvIDY9HDSqImU/NpB5xfGeNRHBuABnLi3Lz2vHf/7H0ZTuv1i8+rx3W/Fd9K7g" crossorigin="anonymous"></script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getDatabase, ref, onValue, push } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsW6xPgFEMhLvwjg79oFr5EPkY7VmkN1A",
+            authDomain: "antisosh-391d5.firebaseapp.com",
+            databaseURL: "https://antisosh-391d5-default-rtdb.firebaseio.com",
+            projectId: "antisosh-391d5",
+            storageBucket: "antisosh-391d5.appspot.com",
+            messagingSenderId: "838183265361",
+            appId: "1:838183265361:web:f77878cd25202c42108470"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const auth = getAuth(app);
+
+        const GROUP_STORAGE_KEY = 'groupData';
+
+        window.onload = function() {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    const userProfileRef = ref(database, `users/${user.uid}`);
+                    onValue(userProfileRef, (snapshot) => {
+                        const userData = snapshot.val();
+                        const profilePic = userData ? userData.profilePic : "aa.png";
+                        document.getElementById("profilePicNav").src = profilePic;
+                    });
+
+                    loadGroupData();
+                    loadMessages();
+                } else {
+                    alert("You are not logged in. Redirecting to login page.");
+                    window.location.href = "index.html";
+                }
+            });
+        };
+
+        function loadGroupData() {
+            const groupData = JSON.parse(localStorage.getItem(GROUP_STORAGE_KEY)) || {
+                name: "Group Chat",
+                profilePic: "group.jpg"
+            };
+            document.getElementById("chatUser").innerText = groupData.name;
+            document.getElementById("groupChatName").innerText = groupData.name;
+            document.getElementById("chatProfilePic").src = groupData.profilePic;
+            document.querySelector(".chat-item.active .icon").src = groupData.profilePic;
+        }
+
+        function loadMessages() {
+            const messagesRef = ref(database, 'messages');
+            onValue(messagesRef, (snapshot) => {
+                const messages = snapshot.val() || {};
+                const messagesContainer = document.getElementById("messages");
+                messagesContainer.innerHTML = '';
+
+                if (Object.keys(messages).length === 0) {
+                    messagesContainer.innerHTML = '<div>No messages yet.</div>';
+                } else {
+                    for (const key in messages) {
+                        const msg = messages[key];
+                        const messageElement = document.createElement("div");
+                        messageElement.className = "message";
+                        messageElement.innerHTML = `
+                            <div class="message-content">
+                                <strong>${msg.username}:</strong> ${msg.text}
+                            </div>
+                        `;
+                        messagesContainer.appendChild(messageElement);
+                    }
+                }
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, (error) => {
+                console.error("Error loading messages:", error);
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const sendBtn = document.getElementById("sendBtn");
+            sendBtn.addEventListener("click", () => {
+                const messageInput = document.getElementById("messageInput");
+                const messageText = messageInput.value.trim();
+                const currentUser = auth.currentUser;
+
+                if (messageText === '' || !currentUser) return;
+
+                const newMessage = {
+                    username: currentUser.email,
+                    text: messageText,
+                    profilePic: currentUser.photoURL || 'defaultProfilePic.jpg'
+                };
+
+                const messagesRef = ref(database, 'messages');
+                push(messagesRef, newMessage)
+                    .then(() => {
+                        messageInput.value = '';
+                    })
+                    .catch((error) => {
+                        console.error("Error sending message:", error);
+                    });
+            });
+
+            document.getElementById("chatUser").ondblclick = editGroupName;
+
+            document.getElementById("chatProfilePic").ondblclick = changeProfilePicture;
+        });
+
+        function editGroupName() {
+            const newChatName = prompt("Enter new chat name (leave blank to keep current name):", document.getElementById("chatUser").innerText);
+            if (newChatName) {
+                updateGroupData(newChatName);
+            }
+        }
+
+        function changeProfilePicture() {
+            const profilePicInput = document.createElement("input");
+            profilePicInput.type = "file";
+            profilePicInput.accept = "image/*";
+            profilePicInput.onchange = function() {
+                const file = profilePicInput.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        updateGroupData(null, e.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            profilePicInput.click();
+        }
+
+        function updateGroupData(newName, newPic) {
+            const groupData = {
+                name: newName || document.getElementById("chatUser").innerText,
+                profilePic: newPic || document.getElementById("chatProfilePic").src
+            };
+            localStorage.setItem(GROUP_STORAGE_KEY, JSON.stringify(groupData));
+            loadGroupData();
+        }
+    </script>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <img src="antisoshicon.jpg" alt="AntiSosh">
+        </div>
+        <nav>
+            <ul>
+                <li><a href="home.html"><img src="home.png" alt="Home"></a></li>
+                <li><a href="messenger.html"><img src="messenger.png" alt="Messenger"></a></li>
+                <li><a href="post.html"><img src="c.png" alt="Post"></a></li>
+                <li><a href="notification.html"><img src="notification.png" alt="Notifications"></a></li>
+                <li><a href="pro.html"><img id="profilePicNav" src="aa.png" alt="Profile" style="width:40px; border-radius:50%;"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <div class="messaging-container">
+        <div class="chat-list">
+            <h2>Chats</h2>
+            <ul id="chatList">
+                <li class="chat-item active">
+                    <img class="icon" src="group.jpg" alt="Profile img"> <span id="groupChatName">Group Chat</span>
+                </li>
+            </ul>
+        </div>
+        
+        <div class="chat-window">
+            <div class="chat-header">
+                <img id="chatProfilePic" src="group.jpg" alt="Profile img" ondblclick="changeProfilePicture()">&nbsp;<h2 id="chatUser" ondblclick="editGroupName()">Group Chat</h2>
+            </div>
+            <div class="messages" id="messages"></div>
+            <div class="message-input">
+                <input type="text" id="messageInput" placeholder="Message...">
+                <button id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

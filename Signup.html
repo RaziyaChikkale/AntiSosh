@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="antisoshicon.jpg" type="image/jpg">
+    <title>AntiSosh.net - Sign Up</title>
+    <style>
+        #z {
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+        import { getDatabase, ref, set } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsW6xPgFEMhLvwjg79oFr5EPkY7VmkN1A",
+            authDomain: "antisosh-391d5.firebaseapp.com",
+            databaseURL: "https://antisosh-391d5-default-rtdb.firebaseio.com",
+            projectId: "antisosh-391d5",
+            storageBucket: "antisosh-391d5.appspot.com",
+            messagingSenderId: "838183265361",
+            appId: "1:838183265361:web:f77878cd25202c42108470"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        window.myFunction = function() {
+            const passwordInput = document.getElementById("Password");
+            passwordInput.type = passwordInput.type === "password" ? "text" : "password";
+        };
+
+        document.addEventListener("DOMContentLoaded", function() {
+            document.getElementById("signupForm").onsubmit = function(event) {
+                event.preventDefault();
+
+                const username = document.getElementById("Username").value;
+                const phoneNumber = document.getElementById("Phonenumber").value;
+                const password = document.getElementById("Password").value;
+
+                const email = username + "@antisosh.com";
+
+                createUserWithEmailAndPassword(auth, email, password)
+                    .then((userCredential) => {
+                        const userId = userCredential.user.uid;
+
+                        const userData = {
+                            username: username,
+                            phoneNumber: phoneNumber,
+                            profilePic: "aa.png" 
+                        };
+                        
+                        set(ref(database, 'users/' + userId), userData)
+                            .then(() => {
+                                alert("Signup Successful!");
+                                window.location.href = "index.html";
+                            });
+                    })
+                    .catch((error) => {
+                        alert(error.message);
+                    });
+            };
+        });
+    </script>
+</head>
+<body>
+    <div class="special">
+        <form id="signupForm">
+            <div class="Anti">
+                <img src="antisoshicon.jpg" alt="antisosh" height="50" width="50" style="border-radius: 5px;">
+                <h2>AntiSosh</h2>
+            </div>
+            <div class="input-box">
+                <input type="text" id="Username" placeholder="Username" required>
+            </div>
+            <div class="input-box">
+                <input type="number" id="Phonenumber" placeholder="Phone Number" required>
+            </div>
+            <div class="input-box">
+                <input type="password" id="Password" placeholder="Password" required>
+            </div>
+            <input id="z" type="checkbox" onclick="myFunction()"> Show Password
+            <br>
+            <div class="btn">
+                <button type="submit">Sign up</button>
+            </div>
+            <h4>Made with love &hearts;</h4>
+        </form>    
+    </div>
+</body>
+</html>

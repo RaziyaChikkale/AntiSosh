@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Post - Antisosh.net</title>
+    <link rel="icon" href="antisoshicon.jpg" type="image/jpg">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #0a0909;
+            color: white;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background-color: #000000;
+            border-bottom: 1px solid #ccc;
+        }
+        .logo img {
+            width: 50px;
+        }
+        .search-container {
+            display: flex;
+            align-items: center;
+        }
+        nav ul {
+            display: flex;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        nav ul li {
+            margin-left: 20px;
+        }
+        nav ul li img {
+            width: 30px;
+        }
+        #submitPost {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 10px; 
+            background-color: blueviolet;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;   
+        }
+        #postInput {
+            height: 40px;
+            width: 40%;
+            font-size: 18px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        .post-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .likeBtn {
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        #postList {
+            height: 50%;
+            overflow-y: auto;
+            width: 90%;
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+        }
+    </style>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getDatabase, ref, onValue, push, update, remove } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsW6xPgFEMhLvwjg79oFr5EPkY7VmkN1A",
+            authDomain: "antisosh-391d5.firebaseapp.com",
+            databaseURL: "https://antisosh-391d5-default-rtdb.firebaseio.com",
+            projectId: "antisosh-391d5",
+            storageBucket: "antisosh-391d5.appspot.com",
+            messagingSenderId: "838183265361",
+            appId: "1:838183265361:web:f77878cd25202c42108470"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const auth = getAuth(app);
+
+        let currentUser;
+
+        document.addEventListener("DOMContentLoaded", function() {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    loadUserProfile(currentUser.uid);
+                    loadPosts();
+                    document.getElementById("submitPost").addEventListener("click", () => {
+                        const postText = document.getElementById("postInput").value.trim();
+                        if (postText === "") return;
+
+                        const newPost = {
+                            text: postText,
+                            userId: auth.currentUser.uid,
+                            likes: [] 
+                        };
+
+                        checkForDuplicatePost(newPost);
+                    });
+                } else {
+                    alert("You are not logged in. Redirecting to login page.");
+                    window.location.href = "index.html";
+                }
+            });
+        });
+
+        function loadUserProfile(userId) {
+            onValue(ref(database, 'users/' + userId), (snapshot) => {
+                const userData = snapshot.val();
+                const profilePic = userData ? userData.profilePic : 'aa.png';
+                document.getElementById("profilePicNav").src = profilePic;
+            }, (error) => {
+                console.error("Error fetching user data:", error);
+            });
+        }
+
+        function checkForDuplicatePost(newPost) {
+            onValue(ref(database, 'posts'), (snapshot) => {
+                const posts = snapshot.val() || {};
+                const isDuplicate = Object.values(posts).some(post => post.text === newPost.text && post.userId === auth.currentUser.uid);
+
+                if (!isDuplicate) {
+                    push(ref(database, 'posts'), newPost).then(() => {
+                        document.getElementById("postInput").value = '';
+                        loadPosts();
+                    }).catch(error => {
+                        console.error("Error posting:", error);
+                    });
+                }
+            });
+        }
+
+        function loadPosts() {
+            const postList = document.getElementById("postList");
+            postList.innerHTML = '';
+
+            onValue(ref(database, 'posts'), (snapshot) => {
+                const posts = snapshot.val() || {};
+                Object.keys(posts).forEach(key => {
+                    const post = posts[key];
+                    const postElement = document.createElement("div");
+                    postElement.className = "post-item";
+                    postElement.setAttribute('data-id', key);
+                    
+                    fetchUserData(post.userId).then(userData => {
+                        postElement.innerHTML = 
+                            `<div class="post-header">
+                                <img src="${userData.profilePic || 'aa.png'}" alt="${userData.username}" style="width:30px; border-radius:50%;">
+                                <strong>${userData.username}:</strong> ${post.text}
+                            </div>
+                             `;
+
+                        postList.appendChild(postElement);
+                    });
+
+                    postElement.ondblclick = function() {
+                        if (post.userId === auth.currentUser.uid) {
+                            const confirmDelete = confirm("Do you want to delete this post?");
+                            if (confirmDelete) {
+                                deletePost(key);
+                            }
+                        } else {
+                            alert("You can only delete your own posts.");
+                        }
+                    };
+                });
+
+                attachLikeButtons();
+            }, (error) => {
+                console.error("Error loading posts:", error);
+            });
+        }
+
+        function fetchUserData(userId) {
+            return new Promise((resolve, reject) => {
+                onValue(ref(database, 'users/' + userId), (snapshot) => {
+                    const userData = snapshot.val() || {};
+                    resolve({
+                        username: userData.username || 'Anonymous',
+                        profilePic: userData.profilePic || 'aa.png'
+                    });
+                }, (error) => {
+                    console.error("Error fetching user data:", error);
+                    reject(error);
+                });
+            });
+        }
+
+        function attachLikeButtons() {
+            document.querySelectorAll(".likeBtn").forEach(button => {
+                button.addEventListener("click", function(event) {
+                    event.stopPropagation();
+                    const postId = this.dataset.id;
+                    likePost(postId);
+                });
+            });
+        }
+
+        function likePost(postId) {
+            const postRef = ref(database, 'posts/' + postId);
+            onValue(postRef, (snapshot) => {
+                const post = snapshot.val();
+                if (post) {
+                    post.likes = post.likes || [];
+                    if (!post.likes.includes(auth.currentUser.uid)) {
+                        post.likes.push(auth.currentUser.uid);
+                        update(postRef, { likes: post.likes })
+                            .then(() => {
+                                loadPosts();
+                            })
+                            .catch(error => {
+                                console.error("Error liking post:", error);
+                            });
+                    } else {
+                        alert("You've already liked this post.");
+                    }
+                }
+            });
+        }
+
+        function deletePost(postId) {
+            remove(ref(database, 'posts/' + postId)).then(() => {
+                loadPosts();
+            }).catch(error => {
+                console.error("Error deleting post:", error);
+            });
+        }
+    </script>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <img src="antisoshicon.jpg" alt="AntiSosh" style="width: 50px;">
+        </div>         
+        <nav>
+            <ul>
+                <li><a href="home.html"><img src="home.png" alt="Home"></a></li>
+                <li><a href="messenger.html"><img src="messenger.png" alt="Messenger"></a></li>
+                <li><a href="post.html"><img src="c.png" alt="Post"></a></li>
+                <li><a href="notification.html"><img src="notification.png" alt="Notifications"></a></li>
+                <li><a href="pro.html"><img id="profilePicNav" src="aa.png" alt="Profile" style="width:40px; border-radius:50%;"></a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <h1>Create a Post</h1>
+    <input type="text" id="postInput" placeholder="What's on your mind?" />
+    <button id="submitPost">Post</button>
+    
+    <div id="postList"></div>
+</body>
+</html>

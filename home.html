@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antisosh.net</title>
+    <link rel="icon" href="antisoshicon.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <style>
+        #map {
+            height: calc(100vh - 100px);
+            width: 100%;
+        }
+        .search-results {
+            position: relative;
+            background: white;
+            color: black;
+            border: 1px solid #ccc;
+            z-index: 10;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            margin: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .search-result {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .search-result:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <img src="antisoshicon.jpg" alt="AntiSosh">
+        </div>
+        <div class="search-container">
+            <i class="search-icon fa fa-search"></i>
+            <input type="search" id="searchInput" placeholder="Search..." style="text-align: left;">
+            <div id="searchResults" class="search-results"></div>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="home.html"><img src="home.png" alt="Home"></a></li>
+                <li><a href="messenger.html"><img src="messenger.png" alt="Messenger"></a></li>
+                <li><a href="post.html"><img src="c.png" alt="Post"></a></li>
+                <li><a href="notification.html"><img src="notification.png" alt="Notifications"></a></li>
+                <li><a href="pro.html"><img id="profilePicNav" src="aa.png" alt="Profile" style="width:40px; border-radius:50%;"></a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+        import { getDatabase, ref, set, get } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsW6xPgFEMhLvwjg79oFr5EPkY7VmkN1A",
+            authDomain: "antisosh-391d5.firebaseapp.com",
+            databaseURL: "https://antisosh-391d5-default-rtdb.firebaseio.com",
+            projectId: "antisosh-391d5",
+            storageBucket: "antisosh-391d5.appspot.com",
+            messagingSenderId: "838183265361",
+            appId: "1:838183265361:web:f77878cd25202c42108470"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        const searchInput = document.getElementById("searchInput");
+        const searchResultsContainer = document.getElementById("searchResults");
+        const markers = L.markerClusterGroup();
+
+        onAuthStateChanged(auth, (currentUser) => {
+            if (!currentUser) {
+                alert("You are not logged in. Redirecting to login page.");
+                window.location.href = "index.html";
+                return;
+            }
+
+            get(ref(database, 'users/' + currentUser.uid)).then(userSnapshot => {
+                const userData = userSnapshot.val();
+                const profilePic = userData.profilePic || "aa.png";
+                document.getElementById("profilePicNav").src = profilePic;
+
+                const map = L.map('map', {
+                    zoom: 20,
+                    center: [0, 0],
+                    zoomControl: true
+                });
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 20,
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(showCurrentUserPosition);
+                } else {
+                    alert("Geolocation is not supported by this browser.");
+                }
+
+                function showCurrentUserPosition(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    map.setView([lat, lon], 20);
+
+                    const userLocationData = {
+                        username: currentUser.uid,
+                        lat: lat + 0.00002,
+                        lon: lon + 0.00002 
+                    };
+
+                    set(ref(database, 'userLocations/' + currentUser.uid), userLocationData)
+                        .then(() => {
+                            const currentUserMarker = L.marker([userLocationData.lat, userLocationData.lon], { icon: createCustomIcon(profilePic) })
+                                .addTo(markers)
+                                .bindPopup("You")
+                                .openPopup();
+                            markers.addLayer(currentUserMarker);
+                            displayAllUserMarkers();
+                        })
+                        .catch((error) => {
+                            console.error("Error saving user location:", error);
+                        });
+                }
+
+                function createCustomIcon(profilePic) {
+                    return L.icon({
+                        iconUrl: profilePic,
+                        iconSize: [40, 40],
+                        iconAnchor: [20, 40],
+                        popupAnchor: [0, -40]
+                    });
+                }
+
+                function displayAllUserMarkers() {
+                    markers.clearLayers(); // Clear existing markers
+                    get(ref(database, 'userLocations')).then((snapshot) => {
+                        snapshot.forEach(childSnapshot => {
+                            const userLocation = childSnapshot.val();
+                            const userId = childSnapshot.key;
+                            get(ref(database, 'users/' + userId)).then(userSnapshot => {
+                                const userData = userSnapshot.val();
+                                const customIcon = createCustomIcon(userData.profilePic || "aa.png");
+
+                                const adjustedLat = userLocation.lat + 0.00002;
+                                const adjustedLon = userLocation.lon + 0.00002;
+
+                                const marker = L.marker([adjustedLat, adjustedLon], { icon: customIcon })
+                                    .addTo(markers)
+                                    .bindPopup(userData.username || "Unknown User");
+
+                                // Add double-click event to the marker
+                                marker.on('dblclick', () => {
+                                    // Redirect to the user profile page
+                                    window.location.href = `user.html?username=${encodeURIComponent(userData.username)}`;
+                                });
+                            }).catch((error) => {
+                                console.error("Error fetching user profile:", error);
+                            });
+                        });
+
+                        map.addLayer(markers);
+                    }).catch((error) => {
+                        console.error("Error fetching user locations:", error);
+                    });
+                }
+
+                searchInput.addEventListener("input", (event) => {
+                    const query = event.target.value.toLowerCase();
+                    if (query) {
+                        searchUsers(query);
+                    } else {
+                        searchResultsContainer.innerHTML = '';
+                        searchResultsContainer.style.display = 'none';
+                    }
+                });
+
+                function searchUsers(query) {
+                    const usersRef = ref(database, 'users/');
+                    get(usersRef).then(snapshot => {
+                        searchResultsContainer.innerHTML = '';
+                        snapshot.forEach(childSnapshot => {
+                            const userData = childSnapshot.val();
+                            const username = userData.username;
+
+                            if (username && username.toLowerCase().includes(query)) {
+                                const userDiv = document.createElement('div');
+                                userDiv.classList.add('search-result');
+                                userDiv.innerHTML = `
+                                    <img src="${userData.profilePic || 'aa.png'}" alt="${username}" style="width: 40px; border-radius: 50%;">
+                                    <span>${username}</span>
+                                `;
+                                userDiv.addEventListener('click', () => {
+                                    window.location.href = `user.html?username=${encodeURIComponent(username)}`;
+                                    searchResultsContainer.style.display = 'none';
+                                });
+                                searchResultsContainer.appendChild(userDiv);
+                            }
+                        });
+
+                        if (searchResultsContainer.childNodes.length > 0) {
+                            searchResultsContainer.style.display = 'block';
+                        } else {
+                            searchResultsContainer.style.display = 'none';
+                        }
+                    }).catch((error) => {
+                        console.error("Error fetching users:", error);
+                    });
+                }
+            }).catch((error) => {
+                console.error("Error fetching user data:", error);
+            });
+        });
+    </script>
+</body>
+</html>

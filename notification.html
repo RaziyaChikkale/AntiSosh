@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifications - Antisosh.net</title>
+    <link rel="icon" href="antisoshicon.jpg" type="image/jpg">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="notifcation.css">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getDatabase, ref, get, onValue } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsW6xPgFEMhLvwjg79oFr5EPkY7VmkN1A",
+            authDomain: "antisosh-391d5.firebaseapp.com",
+            databaseURL: "https://antisosh-391d5-default-rtdb.firebaseio.com",
+            projectId: "antisosh-391d5",
+            storageBucket: "antisosh-391d5.appspot.com",
+            messagingSenderId: "838183265361",
+            appId: "1:838183265361:web:f77878cd25202c42108470"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const auth = getAuth(app);
+
+        document.addEventListener("DOMContentLoaded", function() {
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    const userId = user.uid; // Use the user's UID to fetch profile picture and notifications
+                    const userName = user.displayName || user.email; // Use display name if available, otherwise use email
+                    fetchUserProfilePic(userId);
+                    displayNotifications(userId, userName);
+                } else {
+                    alert("You are not logged in. Redirecting to login page.");
+                    window.location.href = "index.html";
+                }
+            });
+        });
+
+        // Fetch the logged-in user's profile picture
+        function fetchUserProfilePic(userId) {
+            const userRef = ref(database, 'users/' + userId);
+            get(userRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    const userData = snapshot.val();
+                    const profilePic = userData.profilePic || 'aa.png';  // Default to 'aa.png' if no profilePic found
+                    document.getElementById("profilePicNav").src = profilePic;
+                } else {
+                    console.log("User data not found.");
+                }
+            }).catch((error) => {
+                console.error("Error fetching user profile:", error);
+            });
+        }
+
+        // Display notifications for the logged-in user
+        function displayNotifications(userId, userName) {
+            const notificationList = document.getElementById("notificationList");
+
+            // Display the welcome message with the user's name
+            const welcomeNotification = document.createElement("div");
+            welcomeNotification.className = "notification-item";
+            welcomeNotification.innerHTML = `<p><strong>Welcome, ${userName}!</strong> You are logged in here. 🎉</p>`;
+            notificationList.appendChild(welcomeNotification);
+
+            const notificationsRef = ref(database, 'notifications/' + userId);
+
+            onValue(notificationsRef, (snapshot) => {
+                const notifications = snapshot.val() || [];
+                
+                notificationList.innerHTML = '';
+                notificationList.appendChild(welcomeNotification);
+
+                if (Array.isArray(notifications)) {
+                    notifications.forEach(notification => {
+                        const notificationItem = document.createElement("div");
+                        notificationItem.className = "notification-item";
+                        const fromUserProfilePic = notification.from 
+                            ? JSON.parse(localStorage.getItem(notification.from))?.profilePic || 'aa.png' 
+                            : 'aa.png';
+                        notificationItem.innerHTML = ` 
+                            <img src="${fromUserProfilePic}" alt="${notification.from}" style="width:30px; border-radius:50%;"> 
+                            <strong>${notification.from}</strong> : liked your post: "${notification.postText}"
+                        `;
+                        notificationList.appendChild(notificationItem);
+                    });
+                } else {
+                    const noNotifications = document.createElement("div");
+                    noNotifications.className = "notification-item";
+                    noNotifications.innerHTML = "<p>No notifications found.</p>";
+                    notificationList.appendChild(noNotifications);
+                }
+            }, (error) => {
+                console.error("Error fetching notifications:", error);
+            });
+        }
+    </script>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <img src="antisoshicon.jpg" alt="AntiSosh">
+        </div>          
+        <nav>
+            <ul>
+                <li><a href="home.html"><img src="home.png" alt="Home"></a></li>
+                <li><a href="messenger.html"><img src="messenger.png" alt="Messenger"></a></li>
+                <li><a href="post.html"><img src="c.png" alt="Create Post"></a></li>
+                <li><a href="notification.html"><img src="notification.png" alt="Notifications"></a></li>
+                <li><a href="pro.html"><img id="profilePicNav" src="aa.png" alt="Profile" style="width:40px; border-radius:50%;"></a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <main class="notifications">
+        <h2>Notifications</h2>
+        <div id="notificationList"></div>
+    </main>
+</body>
+</html>

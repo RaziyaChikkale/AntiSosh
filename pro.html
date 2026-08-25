@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antisosh.net - Profile</title>
+    <link rel="icon" href="antisoshicon.jpg" type="image/jpeg">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="proo.css">
+    <link rel="stylesheet" href="pro.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        .hidden { display: none; }
+        #bioInput, #usernameInput, #profilePicInput, #currentPasswordInput, #newPasswordInput {
+            width: calc(100% - 40px);
+            margin-bottom: 10px;
+            border-radius: 20px;
+            background: #f0f0f0;
+            border: 2px solid #ccc;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #editButton, #saveChangesButton, #changePicButton, #logoutBtn, #savePasswordButton {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 20px; 
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        #editButton:hover, #saveChangesButton:hover, #changePicButton:hover, #savePasswordButton:hover {
+            background-color: #0056b3;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .posts-grid {
+            display: flex;
+            flex-direction: column;
+            margin-top: 20px;
+        }
+        .post-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .post-header {
+            display: flex;
+            align-items: center;
+        }
+        .likeBtn {
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        .likeCount {
+            margin-left: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <img src="antisoshicon.jpg" alt="AntiSosh">
+        </div>          
+        <nav>
+            <ul>
+                <li><a href="home.html"><img src="home.png" alt="Home"></a></li>
+                <li><a href="messenger.html"><img src="messenger.png" alt="Messenger"></a></li>
+                <li><a href="post.html"><img src="c.png" alt="Post"></a></li>
+                <li><a href="notification.html"><img src="notification.png" alt="Notifications"></a></li>
+                <li><a href="pro.html"><img id="profilePicNav" src="aa.png" alt="Profile" style="width:40px; border-radius:50%;"></a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <div class="profile-container">
+        <header class="profile-header">
+            <img src="aa.png" alt="Profile Picture" class="profile-picture" id="profilePic">
+            <div class="profile-details">
+                <h1 id="username" class="username">Username</h1>
+                <div class="profile-stats">
+                    <span><strong>0</strong> posts</span>
+                </div>
+                <p class="bio" id="bio">No bio available.</p>
+                <div class="profile-actions">
+                    <button class="edit-profile-btn" id="editButton">Edit Profile</button>
+                    <button class="change-pic-btn" id="changePicButton">Change Profile Picture</button> 
+                    <a href="#" class="settings-btn" id="settingsButton"><img src="menu.png" alt="Settings menu"></a>
+                </div>
+            </div>
+            <button id="Logout">Logout</button>
+        </header>
+        
+        <nav class="profile-nav">
+            <a href="" class="active">Posts</a>
+        </nav>
+
+        <section class="posts-grid" id="userPosts"></section>
+    </div>
+
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeModal">&times;</span>
+            <h2>Edit Profile</h2>
+            <label for="bioInput">Bio</label>
+            <textarea id="bioInput" placeholder="Enter new bio" rows="3" aria-label="Bio"></textarea>
+            <button id="saveChangesButton">Save Changes</button>
+        </div>
+    </div>
+
+    <div id="changePicModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeChangePicModal">&times;</span>
+            <h2>Change Profile Picture</h2>
+            <input type="file" id="profilePicInput" accept="image/*">
+            <button id="saveProfilePicButton">Save Profile Picture</button>
+        </div>
+    </div>
+
+    <div id="changePasswordModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeChangePasswordModal">&times;</span>
+            <h2>Change Password</h2>
+            <label for="currentPasswordInput">Current Password</label>
+            <input type="password" id="currentPasswordInput" placeholder="Enter current password">
+            <label for="newPasswordInput">New Password</label>
+            <input type="password" id="newPasswordInput" placeholder="Enter new password">
+            <button id="savePasswordButton">Save Password</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut, EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-auth.js';
+        import { getDatabase, ref, get, update, onValue } from 'https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDsW6xPgFEMhLvwjg79oFr5EPkY7VmkN1A",
+            authDomain: "antisosh-391d5.firebaseapp.com",
+            databaseURL: "https://antisosh-391d5-default-rtdb.firebaseio.com",
+            projectId: "antisosh-391d5",
+            storageBucket: "antisosh-391d5.appspot.com",
+            messagingSenderId: "838183265361",
+            appId: "1:838183265361:web:f77878cd25202c42108470"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        let userData = {}; 
+
+        document.getElementById("Logout").onclick = () => {
+            signOut(auth).then(() => {
+                window.location.href = "index.html";
+            }).catch(error => {
+                console.error("Sign out error:", error);
+            });
+        };
+
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                loadUserData(user.uid);
+                loadUserPosts(user.uid);
+            } else {
+                alert("You are successfully logged out.");
+                window.location.href = "index.html";
+            }
+        });
+
+        function loadUserData(userId) {
+            const userRef = ref(database, 'users/' + userId);
+            get(userRef).then(snapshot => {
+                if (snapshot.exists()) {
+                    userData = snapshot.val(); 
+                    document.getElementById("profilePic").src = userData.profilePic || "aa.png";
+                    document.getElementById("username").innerText = userData.username || "Anonymous"; 
+                    document.getElementById("bio").innerText = userData.bio || "No bio available.";
+                    document.getElementById("profilePicNav").src = userData.profilePic || "aa.png";
+
+                    updatePostCount();
+                } else {
+                    console.error("No profile data found for the logged-in user.");
+                }
+            }).catch(error => {
+                console.error("Error loading user data:", error);
+            });
+        }
+
+        function loadUserPosts(userId) {
+            const postsRef = ref(database, 'posts');
+            onValue(postsRef, snapshot => {
+                const userPostsContainer = document.getElementById("userPosts");
+                userPostsContainer.innerHTML = '';
+
+                snapshot.forEach(childSnapshot => {
+                    const post = childSnapshot.val();
+                    if (post.userId === userId) {
+                        const postElement = document.createElement("div");
+                        postElement.className = "post-item";
+                        postElement.innerHTML = `
+                            <div class="post-header">
+                             ${post.text || 'No content available.'}
+                            </div>
+                        `;
+                        userPostsContainer.appendChild(postElement);
+                    }
+                });
+
+                updatePostCount();
+            }, error => {
+                console.error("Error loading posts:", error);
+            });
+        }
+
+        function updatePostCount() {
+            const postsCount = document.getElementById("userPosts").children.length;
+            update(ref(database, 'users/' + auth.currentUser.uid), { postsCount: postsCount }).catch(error => {
+                console.error("Error updating posts count:", error);
+            });
+            document.querySelector('.profile-stats span strong').innerText = postsCount;
+        }
+
+        document.getElementById("editButton").onclick = () => {
+            document.getElementById("editModal").style.display = "block";
+        };
+
+        document.getElementById("closeModal").onclick = () => {
+            document.getElementById("editModal").style.display = "none";
+        };
+
+        document.getElementById("saveChangesButton").onclick = () => {
+            const newBio = document.getElementById("bioInput").value;
+            update(ref(database, 'users/' + auth.currentUser.uid), { bio: newBio }).then(() => {
+                document.getElementById("bio").innerText = newBio;
+                document.getElementById("editModal").style.display = "none";
+            }).catch(error => {
+                console.error("Error saving bio:", error);
+            });
+        };
+
+        document.getElementById("changePicButton").onclick = () => {
+            document.getElementById("changePicModal").style.display = "block";
+        };
+
+        document.getElementById("closeChangePicModal").onclick = () => {
+            document.getElementById("changePicModal").style.display = "none";
+        };
+
+        document.getElementById("saveProfilePicButton").onclick = () => {
+            const fileInput = document.getElementById("profilePicInput");
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const newProfilePicUrl = reader.result; 
+                    update(ref(database, 'users/' + auth.currentUser.uid), { profilePic: newProfilePicUrl }).then(() => {
+                        document.getElementById("profilePic").src = newProfilePicUrl;
+                        document.getElementById("profilePicNav").src = newProfilePicUrl;
+                        document.getElementById("changePicModal").style.display = "none";
+                    }).catch(error => {
+                        console.error("Error changing profile picture:", error);
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        document.getElementById("settingsButton").onclick = () => {
+            document.getElementById("changePasswordModal").style.display = "block";
+        };
+
+        document.getElementById("closeChangePasswordModal").onclick = () => {
+            document.getElementById("changePasswordModal").style.display = "none";
+        };
+
+        document.getElementById("savePasswordButton").onclick = () => {
+            const currentPassword = document.getElementById("currentPasswordInput").value;
+            const newPassword = document.getElementById("newPasswordInput").value;
+
+            const user = auth.currentUser;
+
+            const credential = EmailAuthProvider.credential(user.email, currentPassword);
+
+            reauthenticateWithCredential(user, credential).then(() => {
+                updatePassword(user, newPassword).then(() => {
+                    alert("Password updated successfully!");
+                    document.getElementById("changePasswordModal").style.display = "none";
+                }).catch(error => {
+                    console.error("Error updating password:", error);
+                    alert("Error updating password: " + error.message);
+                });
+            }).catch(error => {
+                console.error("Error re-authenticating:", error);
+                alert("Current password is incorrect.");
+            });
+        };
+    </script>
+</body>
+</html>
